@@ -1,13 +1,10 @@
 version: '3.8'
-
-x-logging: &default-logging
-  driver: "json-file"
+x-logging: &id001
+  driver: json-file
   options:
-    max-size: "5m"
-    max-file: "3"
-
+    max-size: 5m
+    max-file: '3'
 services:
-  # --- Infrastructure ---
   mysql:
     image: mysql:8.0
     container_name: bilibili-mysql
@@ -15,63 +12,62 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: bilibili
     ports:
-      - "3306:3306"
+    - 3306:3306
     volumes:
-      - mysql_data:/var/lib/mysql
+    - mysql_data:/var/lib/mysql
     networks:
-      - bilibili-net
-    command: >
-      --default-authentication-plugin=mysql_native_password
-      --innodb-buffer-pool-size=64M
-      --innodb-log-file-size=32M
-      --innodb-flush-log-at-trx-commit=2
-      --innodb-flush-method=O_DIRECT
-      --innodb-doublewrite=0
-      --max-connections=80
-      --performance-schema=OFF
-      --skip-log-bin
-    mem_limit: 256m
-    cpus: 0.8
+    - bilibili-net
+    command: '--default-authentication-plugin=mysql_native_password --innodb-buffer-pool-size=64M
+      --innodb-log-file-size=32M --innodb-flush-log-at-trx-commit=2 --innodb-flush-method=O_DIRECT
+      --innodb-doublewrite=0 --max-connections=80 --performance-schema=OFF --skip-log-bin
+
+      '
     healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      test:
+      - CMD
+      - mysqladmin
+      - ping
+      - -h
+      - localhost
       timeout: 20s
       retries: 10
-    logging: *default-logging
-
+    logging: *id001
   redis:
     image: redis:6.2-alpine
     container_name: bilibili-redis
     ports:
-      - "6379:6379"
-    command: ["redis-server", "--save", "", "--maxmemory", "96mb", "--maxmemory-policy", "allkeys-lru", "--stop-writes-on-bgsave-error", "no"]
+    - 6379:6379
+    command:
+    - redis-server
+    - --save
+    - ''
+    - --maxmemory
+    - 96mb
+    - --maxmemory-policy
+    - allkeys-lru
+    - --stop-writes-on-bgsave-error
+    - 'no'
     volumes:
-      - redis_data:/data
+    - redis_data:/data
     networks:
-      - bilibili-net
-    mem_limit: 128m
-    cpus: 0.35
-    logging: *default-logging
-
+    - bilibili-net
+    logging: *id001
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: bilibili-rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+    - 5672:5672
+    - 15672:15672
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
-      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+P 256000 +hms 32m +hmbs 16m
-      - RABBITMQ_MEM_RELATIVE=0.45
+    - RABBITMQ_DEFAULT_USER=guest
+    - RABBITMQ_DEFAULT_PASS=guest
+    - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=+P 256000 +hms 32m +hmbs 16m
+    - RABBITMQ_MEM_RELATIVE=0.45
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
+    - rabbitmq_data:/var/lib/rabbitmq
     networks:
-      - bilibili-net
-    mem_limit: 256m
-    cpus: 0.6
-    logging: *default-logging
-
-  # --- Microservices ---
+    - bilibili-net
+    logging: *id001
   user-service:
     build:
       context: .
@@ -83,14 +79,11 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      - MYSQL_DSN=root:root@tcp(mysql:3306)/bilibili?charset=utf8mb4&parseTime=True&loc=Local
-      - GOMEMLIMIT=115MiB
+    - MYSQL_DSN=root:root@tcp(mysql:3306)/bilibili?charset=utf8mb4&parseTime=True&loc=Local
+    - GOMEMLIMIT=115MiB
     networks:
-      - bilibili-net
-    mem_limit: 128m
-    cpus: 0.4
-    logging: *default-logging
-
+    - bilibili-net
+    logging: *id001
   video-service:
     build:
       context: .
@@ -101,19 +94,21 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      rabbitmq:
+        condition: service_started
     environment:
-      - MYSQL_DSN=root:root@tcp(mysql:3306)/bilibili?charset=utf8mb4&parseTime=True&loc=Local
-      - STORAGE_PATH=/app/uploads
-      - DOMAIN_URL=https://api.abfun.me/uploads
-      - GOMEMLIMIT=173MiB
+    - MYSQL_DSN=root:root@tcp(mysql:3306)/bilibili?charset=utf8mb4&parseTime=True&loc=Local
+    - STORAGE_PATH=/app/uploads
+    - DOMAIN_URL=https://api.abfun.me/uploads
+    - GOMEMLIMIT=173MiB
+    - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    - MEILISEARCH_HOST=http://meilisearch:7700
+    - MEILISEARCH_API_KEY=masterKey
     volumes:
-      - uploads_data:/app/uploads
+    - uploads_data:/app/uploads
     networks:
-      - bilibili-net
-    mem_limit: 256m
-    cpus: 0.6
-    logging: *default-logging
-
+    - bilibili-net
+    logging: *id001
   danmaku-service:
     build:
       context: .
@@ -127,15 +122,12 @@ services:
       rabbitmq:
         condition: service_started
     environment:
-      - MYSQL_DSN=root:root@tcp(mysql:3306)/bilibili?charset=utf8mb4&parseTime=True&loc=Local
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-      - GOMEMLIMIT=115MiB
+    - MYSQL_DSN=root:root@tcp(mysql:3306)/bilibili?charset=utf8mb4&parseTime=True&loc=Local
+    - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    - GOMEMLIMIT=115MiB
     networks:
-      - bilibili-net
-    mem_limit: 128m
-    cpus: 0.45
-    logging: *default-logging
-
+    - bilibili-net
+    logging: *id001
   interaction-service:
     build:
       context: .
@@ -151,58 +143,57 @@ services:
       rabbitmq:
         condition: service_started
     environment:
-      - MYSQL_DSN=root:root@tcp(mysql:3306)/bilibili?charset=utf8mb4&parseTime=True&loc=Local
-      - REDIS_ADDR=redis:6379
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
-      - GOMEMLIMIT=115MiB
+    - MYSQL_DSN=root:root@tcp(mysql:3306)/bilibili?charset=utf8mb4&parseTime=True&loc=Local
+    - REDIS_ADDR=redis:6379
+    - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    - GOMEMLIMIT=115MiB
     networks:
-      - bilibili-net
-    mem_limit: 128m
-    cpus: 0.45
-    logging: *default-logging
-
-  # --- Gateway ---
+    - bilibili-net
+    logging: *id001
   nginx:
     image: nginx:alpine
     container_name: bilibili-nginx
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
-      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - uploads_data:/data/uploads:ro
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
+    - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    - uploads_data:/data/uploads:ro
     depends_on:
-      - user-service
-      - video-service
-      - danmaku-service
-      - interaction-service
+    - user-service
+    - video-service
+    - danmaku-service
+    - interaction-service
     networks:
-      - bilibili-net
-    mem_limit: 64m
-    cpus: 0.2
-    logging: *default-logging
-
-  certbot:
-    image: certbot/certbot
-    container_name: bilibili-certbot
+    - bilibili-net
+    logging: *id001
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: bilibili-cloudflared
+    command: tunnel --no-autoupdate run --token eyJhIjoiMTdlYTIxNDQ0Njc0NjQ3ZGE5MTM4Njc4NzZmNDZiMjIiLCJ0IjoiNDQ4YjFhN2UtYWE4Zi00NjVkLWJkYTAtZmYyZmYzMDJkZTFkIiwicyI6Ik5ETmxZMk15WkRJdFltUmlOUzAwT1dVMExUZzFOemd0TkdaaE5XSmhOMk16WmpnNSJ9
+    networks:
+    - bilibili-net
+    restart: always
+    logging: *id001
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: bilibili-meilisearch
+    ports:
+    - 7700:7700
+    environment:
+    - MEILI_MASTER_KEY=masterKey
     volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    - meili_data:/meili_data
     networks:
-      - bilibili-net
-    mem_limit: 96m
-    cpus: 0.2
-    logging: *default-logging
-
+    - bilibili-net
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '3'
 networks:
   bilibili-net:
     driver: bridge
-
 volumes:
-  mysql_data:
-  redis_data:
-  uploads_data:
-  rabbitmq_data:
+  mysql_data: null
+  redis_data: null
+  uploads_data: null
+  rabbitmq_data: null
+  meili_data: null
