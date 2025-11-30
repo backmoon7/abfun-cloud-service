@@ -50,3 +50,25 @@ func (r *VideoRepository) InitTags() {
 		database.DB.FirstOrCreate(&model.Tag{Name: name}, model.Tag{Name: name})
 	}
 }
+
+func (r *VideoRepository) UpdateStatus(videoID uint, status int, videoURL, coverURL string) error {
+updates := map[string]interface{}{"status": status}
+if videoURL != "" {
+updates["video_url"] = videoURL
+}
+if coverURL != "" {
+updates["cover_url"] = coverURL
+}
+return database.DB.Model(&model.Video{}).Where("id = ?", videoID).Updates(updates).Error
+}
+
+func (r *VideoRepository) FindByID(id uint) (*model.Video, []uint, error) {
+var video model.Video
+if err := database.DB.First(&video, id).Error; err != nil {
+return nil, nil, err
+}
+
+var tagIDs []uint
+err := database.DB.Model(&model.VideoTag{}).Where("video_id = ?", id).Pluck("tag_id", &tagIDs).Error
+return &video, tagIDs, err
+}
