@@ -2,6 +2,7 @@ package api
 
 import (
 	"bilibili-clone/internal/danmaku/service"
+        "bilibili-clone/internal/danmaku/model"
 	"bilibili-clone/internal/danmaku/ws"
 	"net/http"
 	"strconv"
@@ -61,4 +62,44 @@ func (h *DanmakuHandler) ServeWS(c *gin.Context) {
 
 	go client.WritePump()
 	go client.ReadPump()
+}
+
+
+func (h *DanmakuHandler) SendDanmaku(c *gin.Context) {
+        userIDVal, exists := c.Get("user_id")
+        if !exists {
+                c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+                return
+        }
+        userID := userIDVal.(uint)
+
+        var req struct {
+                VideoID uint    `json:"video_id" binding:"required"`
+                Content string  `json:"content" binding:"required"`
+                Time    float64 `json:"time" binding:"required"`
+                Color   string  `json:"color"`
+        }
+        if err := c.ShouldBindJSON(&req); err != nil {
+                c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+                return
+        }
+
+        if req.Color == "" {
+                req.Color = "#FFFFFF"
+        }
+
+        danmaku := &model.Danmaku{
+                VideoID: req.VideoID,
+                UserID:  userID,
+                Content: req.Content,
+                Time:    req.Time,
+                Color:   req.Color,
+        }
+
+        if err := h.svc.AddDanmaku(danmaku); err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                return
+        }
+
+        c.JSON(http.StatusOK, gin.H{"message": "danmaku sent", "danmaku_id": danmaku.ID})
 }
