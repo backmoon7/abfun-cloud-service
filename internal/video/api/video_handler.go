@@ -188,7 +188,7 @@ func (h *VideoHandler) GetFeed(c *gin.Context) {
 	}
 
 	// Build Response
-	var response []FeedVideoResponse
+	response := make([]FeedVideoResponse, 0)
 	for _, v := range videos {
 		u := userMap[v.UserID]
 		response = append(response, FeedVideoResponse{
@@ -263,7 +263,7 @@ func (h *VideoHandler) Search(c *gin.Context) {
 	}
 
 	// Build Response
-	var response []FeedVideoResponse
+	response := make([]FeedVideoResponse, 0)
 	for _, v := range videos {
 		u := userMap[v.UserID]
 		response = append(response, FeedVideoResponse{
